@@ -1,0 +1,14 @@
+@page "/login"
+@model LoginModel
+@{
+    ViewData["Title"] = "Editor sign in";
+}
+
+<section class="login-page">
+    <div class="login-copy">
+        <h1>Editor sign in</h1>
+        <p>This sample uses a one-click editor session.</p>
+        <form method="post"><button type="submit">Open dashboard</button></form>
+        <a asp-page="/Index">Back to Dashboard Blog</a>
+    </div>
+</section>

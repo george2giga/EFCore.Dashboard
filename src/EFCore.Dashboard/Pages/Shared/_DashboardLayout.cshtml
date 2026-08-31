@@ -1,0 +1,123 @@
+@inject IDashboardResourceProvider ResourceProvider
+@inject DashboardOptions DashboardOptions
+@{
+    var resources = ResourceProvider.GetResources();
+    var current = ViewContext.RouteData.Values["resourceName"]?.ToString() ?? ViewData["NavActive"]?.ToString();
+    var breadcrumbSection = current is null or "data-model" ? "Workspace" : "Data";
+    var dashboardVersion = typeof(DashboardOptions).Assembly.GetName().Version?.ToString(3);
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>@ViewData["Title"] · EFCore.Dashboard</title>
+    <script>
+        // Theme is applied before first paint; nothing is rendered until this runs.
+        // System preference stays the default until the user toggles (persisted).
+        (function () {
+            var stored = null;
+            try { stored = localStorage.getItem("efcd-theme"); } catch (e) { }
+            if (stored === "light" || stored === "dark") {
+                document.documentElement.setAttribute("data-theme", stored);
+            }
+            document.documentElement.classList.add("js");
+        })();
+    </script>
+    <link rel="stylesheet" href="@Url.Content("~/_content/EFCore.Dashboard/dashboard.css")" />
+    @foreach (var stylesheet in DashboardOptions.AdditionalStylesheets)
+    {
+        <link rel="stylesheet" href="@Url.Content(stylesheet)" />
+    }
+    <script src="@Url.Content("~/_content/EFCore.Dashboard/htmx.min.js")" integrity="sha384-H5SrcfygHmAuTDZphMHqBJLc3FhssKjG7w/CeCpFReSfwBWDTKpkzPP8c+cLsK+V"></script>
+    @await RenderSectionAsync("Head", required: false)
+</head>
+<body>
+<div class="dash-nav-backdrop" onclick="document.body.classList.remove('nav-open')" aria-hidden="true"></div>
+<div class="dash-shell">
+    <aside class="dash-sidebar">
+        <a class="dash-brand" asp-page="/Admin/Index"><span class="dash-logo">@await Html.PartialAsync("_Icon", "database")</span><span class="dash-brand-copy"><strong>EFCore</strong><span>Dashboard</span></span></a>
+        <nav>
+            <div class="dash-nav-label">Workspace</div>
+            <a class="dash-nav-item @(current is null ? "active" : null)" asp-page="/Admin/Index">
+                <span class="dash-nav-icon">@await Html.PartialAsync("_Icon", "dashboard")</span><span>Dashboard</span>
+            </a>
+            <a class="dash-nav-item @(string.Equals(current, "data-model", StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-page="/Admin/Schema">
+                <span class="dash-nav-icon">@await Html.PartialAsync("_Icon", "workflow")</span><span>Data model</span>
+            </a>
+            <div class="dash-nav-label">Data</div>
+            @foreach (var resource in resources)
+            {
+                <a class="dash-nav-item @(string.Equals(current, resource.Slug, StringComparison.OrdinalIgnoreCase) ? "active" : null)" asp-page="/Admin/Resource" asp-route-resourceName="@resource.Slug">
+                    <span class="dash-nav-icon">@await Html.PartialAsync("_Icon", "table")</span><span>@resource.Label</span>
+                </a>
+            }
+        </nav>
+        <div class="dash-sidebar-foot"><span><span class="dash-status-dot"></span><code>v@(dashboardVersion)</code></span></div>
+    </aside>
+    <div class="dash-main">
+        <header class="dash-topbar">
+            <button class="dash-mobile-menu" type="button" onclick="document.body.classList.toggle('nav-open')" aria-label="Toggle navigation">@await Html.PartialAsync("_Icon", "menu")</button>
+            <div class="dash-breadcrumb"><a asp-page="/Admin/Index">@breadcrumbSection</a><span>/</span><strong>@ViewData["Title"]</strong></div>
+            <div class="dash-topbar-actions">
+                <button class="dash-theme-toggle" type="button" aria-label="Toggle dark mode" aria-pressed="false">
+                    @await Html.PartialAsync("_Icon", "moon")
+                    @await Html.PartialAsync("_Icon", "sun")
+                </button>
+                @if (DashboardOptions.AccountPartial is { } accountPartial)
+                {
+                    @await Html.PartialAsync(accountPartial)
+                }
+            </div>
+        </header>
+        <main class="dash-content">
+            @RenderBody()
+        </main>
+    </div>
+</div>
+<script>
+    // First-class light/dark toggle. System preference is the default until the
+    // user chooses; the choice is persisted and wins on later visits.
+    (function () {
+        var root = document.documentElement;
+        var toggle = document.querySelector(".dash-theme-toggle");
+        if (!toggle) return;
+
+        var meta = document.querySelector('meta[name="theme-color"]');
+        function currentTheme() {
+            return getComputedStyle(root).colorScheme === "dark" ? "dark" : "light";
+        }
+        function paint(theme, animate) {
+            root.setAttribute("data-theme", theme);
+            if (animate) {
+                root.classList.add("theming");
+                window.setTimeout(function () { root.classList.remove("theming"); }, 250);
+            }
+        }
+        function state() {
+            var dark = currentTheme() === "dark";
+            toggle.setAttribute("aria-pressed", dark);
+            toggle.setAttribute("aria-label", dark ? "Switch to light theme" : "Switch to dark theme");
+            if (meta) meta.setAttribute("content", dark ? "#0d1117" : "#ffffff");
+        }
+
+        // Escape or backdrop click closes the mobile nav.
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") document.body.classList.remove("nav-open");
+        });
+
+        state();
+
+        toggle.addEventListener("click", function () {
+            var next = currentTheme() === "dark" ? "light" : "dark";
+            try { localStorage.setItem("efcd-theme", next); } catch (e) { }
+            paint(next, true);
+            state();
+        });
+    })();
+</script>
+@await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

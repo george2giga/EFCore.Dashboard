@@ -1,0 +1,19 @@
+@page "/writers/{slug}"
+@model AuthorModel
+@{
+    var author = Model.Author!;
+    ViewData["Title"] = author.Name;
+}
+
+<section class="author-profile">
+    <div class="author-portrait"><img src="@author.AvatarUrl" alt="Portrait of @author.Name" /><span>Contributor since @author.JoinedOn.ToString("yyyy")</span></div>
+    <div class="author-copy"><p class="kicker">@author.Role</p><h1>@author.Name</h1><p>@author.Bio</p><div class="author-links"><a href="mailto:@author.Email">Email</a><a href="@author.Website" rel="noopener">Website</a>@if (author.AvailableForWork) { <span>Available for selected work</span> }</div></div>
+</section>
+
+<section class="author-stories">
+    <header class="section-heading"><div><span>Archive</span><h2>Stories by @author.Name</h2></div><strong>@author.Articles.Count total</strong></header>
+    @foreach (var article in author.Articles.OrderByDescending(article => article.PublishedAt))
+    {
+        <a class="author-story" asp-page="/Article" asp-route-slug="@article.Slug"><time>@article.PublishedAt?.ToString("dd MMM yyyy")</time><span><small>@article.Category.Name</small><strong>@article.Title</strong><p>@article.Excerpt</p></span><span aria-hidden="true">&#8599;</span></a>
+    }
+</section>

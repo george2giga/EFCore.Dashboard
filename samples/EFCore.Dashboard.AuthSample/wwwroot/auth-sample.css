@@ -1,0 +1,25 @@
+:root {
+  --accent: #6d28d9;
+  --accent-hover: #5b21b6;
+  --accent-soft: rgba(109, 40, 217, 0.12);
+  --ring: rgba(109, 40, 217, 0.25);
+  --radius-sm: 8px;
+  --radius: 9px;
+  --radius-lg: 12px;
+}
+
+:root[data-theme="dark"] {
+  --accent: #a78bfa;
+  --accent-hover: #c4b5fd;
+  --accent-soft: rgba(167, 139, 250, 0.16);
+  --ring: rgba(167, 139, 250, 0.32);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    --accent: #a78bfa;
+    --accent-hover: #c4b5fd;
+    --accent-soft: rgba(167, 139, 250, 0.16);
+    --ring: rgba(167, 139, 250, 0.32);
+  }
+}

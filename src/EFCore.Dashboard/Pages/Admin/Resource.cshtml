@@ -1,0 +1,321 @@
+@page "/admin/{resourceName}"
+@model EFCore.Dashboard.Pages.Admin.ResourceModel
+@{
+    Layout = "_DashboardLayout";
+    ViewData["Title"] = Model.Resource?.Label ?? "Resource";
+}
+@if (Model.Resource is not null && Model.Result is not null)
+{
+var resourceUrl = Url.Page("/Admin/Resource", new { resourceName = Model.Resource.Slug })!;
+var returnUrl = $"{Model.Request.PathBase}{Model.Request.Path}{Model.Request.QueryString}";
+<div class="dash-page-head">
+    <div><div class="dash-eyebrow">Data</div><h1>@Model.Resource.Label</h1><p>@Model.Result.Total.ToString("N0") records in @Model.Resource.Name.</p></div>
+    <a class="dash-btn dash-btn-primary" asp-page="/Admin/Edit" asp-route-resourceName="@Model.Resource.Slug" asp-route-returnUrl="@returnUrl" asp-route-parentField="@Model.ActiveFilter?.Name" asp-route-parentValue="@Model.FilterValue">@await Html.PartialAsync("_Icon", "plus") New @Model.Resource.Name</a>
+</div>
+
+<div class="dash-panel dash-grid-panel">
+    @if (Model.ActiveFilter is not null)
+    {
+        <div class="dash-filter-context">
+            <span>Filtered by <strong>@Model.ActiveFilter.Label</strong>: <code>@Model.FilterValue</code></span>
+            <a href="@resourceUrl">Clear filter</a>
+        </div>
+    }
+    <form class="dash-toolbar" method="get" action="@resourceUrl" hx-get="@resourceUrl" hx-trigger="submit, input changed delay:300ms from:#dash-search" hx-target="closest .dash-panel" hx-select=".dash-panel" hx-swap="outerHTML" hx-push-url="true">
+        <div class="dash-search-wrap"><span>@await Html.PartialAsync("_Icon", "search")</span><input id="dash-search" class="dash-input dash-search" type="search" name="q" value="@Model.Q" placeholder="Search @Model.Resource.Label.ToLowerInvariant()…" aria-label="Search @Model.Resource.Label" /></div>
+        <input type="hidden" name="sort" value="@Model.Sort" />
+        <input type="hidden" name="desc" value="@Model.Desc.ToString().ToLowerInvariant()" />
+        <input type="hidden" name="pageNumber" value="@Model.PageNumber" />
+        <input type="hidden" name="filterField" value="@Model.FilterField" />
+        <input type="hidden" name="filterValue" value="@Model.FilterValue" />
+        <div class="dash-toolbar-view-controls">
+            <select class="dash-select" name="pageSize" onchange="this.form.requestSubmit()">
+                @foreach (var size in new[] { 10, 20, 50, 100 }) { <option value="@size" selected="@(Model.PageSize == size)">@size / page</option> }
+            </select>
+            <nav class="dash-view-switch" aria-label="Data view">
+                <button class="dash-view-option active" type="button" data-view-option="grid" aria-pressed="true" title="Grid view">@await Html.PartialAsync("_Icon", "card-view")<span class="dash-visually-hidden">Grid view</span></button>
+                <button class="dash-view-option" type="button" data-view-option="cards" aria-pressed="false" title="Compact card view">@await Html.PartialAsync("_Icon", "grid-view")<span class="dash-visually-hidden">Compact card view</span></button>
+            </nav>
+        </div>
+        <a class="dash-btn" href="@Url.Page("/Admin/Resource", new { resourceName = Model.Resource.Slug, export = true, q = Model.Q ?? "", sort = Model.Sort ?? "", desc = Model.Desc.ToString().ToLowerInvariant(), filterField = Model.FilterField, filterValue = Model.FilterValue })" title="Download the matching rows as CSV">@await Html.PartialAsync("_Icon", "spreadsheet") Export</a>
+    </form>
+
+    <div id="resource-table" class="dash-table-wrap" data-view-mode="grid">
+        @if (!ViewData.ModelState.IsValid || Model.DeleteReferences.Count > 0)
+        {
+            <div class="dash-alert dash-grid-alert"><strong>Nothing was deleted.</strong>@if (!ViewData.ModelState.IsValid) { <div asp-validation-summary="All"></div> }@await Html.PartialAsync("_DeleteReferences", Model.DeleteReferences)</div>
+        }
+        <div class="dash-table-scroll">
+        <table class="dash-table">
+            <caption class="dash-visually-hidden">@Model.Resource.Label records</caption>
+            <thead><tr>
+            <th class="dash-select-col" scope="col"><label><input class="dash-grid-check" type="checkbox" data-select-all /><span>Select all on this page</span></label></th>
+            @foreach (var field in Model.Columns)
+            {
+                @if (Model.IsSortable(field))
+                {
+                    var isCurrent = string.Equals(Model.Sort, field.Name, StringComparison.OrdinalIgnoreCase);
+                    var nextDesc = isCurrent ? !Model.Desc : false;
+                    var ariaSort = isCurrent ? (Model.Desc ? "descending" : "ascending") : null;
+                    var sortUrl = Url.Page("/Admin/Resource", new { resourceName = Model.Resource.Slug, q = Model.Q ?? "", sort = field.Name, desc = nextDesc.ToString().ToLowerInvariant(), pageNumber = 1, pageSize = Model.PageSize, filterField = Model.FilterField, filterValue = Model.FilterValue })!;
+                     <th class="@(field.IsKey ? "dash-key-col" : null)" aria-sort="@ariaSort" scope="col"><a class="dash-sort" href="@sortUrl" hx-get="@sortUrl" hx-target="closest .dash-panel" hx-select=".dash-panel" hx-swap="outerHTML" hx-push-url="true">@field.Label @if (isCurrent) { @await Html.PartialAsync("_Icon", Model.Desc ? "chevron-down" : "chevron-up") }</a></th>
+                }
+                else
+                {
+                    <th class="@(field.IsKey ? "dash-key-col" : null)" scope="col">@field.Label</th>
+                }
+            }
+            <th class="dash-actions-col" scope="col"><span class="dash-visually-hidden">Actions</span></th></tr></thead>
+            <tbody>
+            @if (Model.Result.Items.Count == 0)
+            {
+                <tr class="dash-empty-row"><td colspan="@(Model.Columns.Count + 2)"><div class="dash-empty"><strong>No records found</strong><span>Try a different search or create the first item.</span></div></td></tr>
+            }
+            else
+            {
+                @foreach (var item in Model.Result.Items)
+                {
+                    var id = Model.KeyValue(item);
+                    <tr>
+                    <td class="dash-select-cell"><input class="dash-grid-check" type="checkbox" name="selectedIds" value="@id" form="dash-bulk-form" data-row-select aria-label="Select record @id" /><code class="dash-card-key" title="@Model.Resource.Key.Label: @id">ID: @id</code></td>
+                    @foreach (var field in Model.Columns)
+                    {
+                            <td class="@(field.IsKey ? "dash-key-col" : null)" data-label="@field.Label">
+                            @{
+                                var image = Model.ImageUrl(item, field) ?? (Model.HasImage(item, field)
+                                    ? Url.Page("/Admin/Resource", new { resourceName = Model.Resource.Slug, handler = "Image", id, field = field.Name })
+                                    : null);
+                                var booleanValue = Model.BooleanValue(item, field);
+                            }
+                            @if (image is not null)
+                            {
+                                <span class="dash-image-cell">
+                                    <img src="@image" class="dash-thumb" alt="@field.Label" title="@Model.Display(item, field)" loading="lazy" decoding="async" referrerpolicy="no-referrer" data-image-url-thumbnail />
+                                    <span class="dash-muted" hidden data-image-url-fallback>Unavailable</span>
+                                </span>
+                            }
+                            else if (booleanValue is not null)
+                            {
+                                var isTrue = booleanValue.Value;
+                                <span class="dash-bool dash-bool-@(isTrue ? "true" : "false")" title="@Model.Tooltip(item, field)">
+                                    @await Html.PartialAsync("_Icon", isTrue ? "check" : "x")<span>@(isTrue ? "Yes" : "No")</span>
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="dash-cell" title="@Model.Tooltip(item, field)">@Model.Display(item, field)</span>
+                            }
+                        </td>
+                    }
+                    <td class="dash-row-actions">
+                        <div class="dash-row-action-group">
+                            <a class="dash-row-action dash-row-action-edit" asp-page="/Admin/Edit" asp-route-resourceName="@Model.Resource.Slug" asp-route-id="@id" asp-route-returnUrl="@returnUrl" title="Edit record">@await Html.PartialAsync("_Icon", "pencil")<span class="dash-visually-hidden">Edit</span></a>
+                            <form class="dash-row-delete-form" method="post" asp-page-handler="BulkDelete" asp-route-resourceName="@Model.Resource.Slug" asp-route-q="@Model.Q" asp-route-sort="@Model.Sort" asp-route-desc="@Model.Desc" asp-route-pageNumber="@Model.PageNumber" asp-route-pageSize="@Model.PageSize" asp-route-filterField="@Model.FilterField" asp-route-filterValue="@Model.FilterValue" onsubmit="return confirm('Delete this record? This cannot be undone.')">
+                                <input type="hidden" name="selectedIds" value="@id" />
+                                <button class="dash-row-action dash-row-action-delete" type="submit" title="Delete record">@await Html.PartialAsync("_Icon", "trash")<span class="dash-visually-hidden">Delete</span></button>
+                            </form>
+                        </div>
+                    </td>
+                    </tr>
+                }
+            }
+            </tbody>
+        </table>
+        </div>
+        <form id="dash-bulk-form" class="dash-bulk-bar" method="post" asp-page-handler="BulkDelete" asp-route-resourceName="@Model.Resource.Slug" onsubmit="return confirm('Delete the selected records? This cannot be undone.')" hidden>
+            <input type="hidden" name="q" value="@Model.Q" />
+            <input type="hidden" name="sort" value="@Model.Sort" />
+            <input type="hidden" name="desc" value="@Model.Desc.ToString().ToLowerInvariant()" />
+            <input type="hidden" name="pageNumber" value="@Model.PageNumber" />
+            <input type="hidden" name="pageSize" value="@Model.PageSize" />
+            <input type="hidden" name="filterField" value="@Model.FilterField" />
+            <input type="hidden" name="filterValue" value="@Model.FilterValue" />
+            <span class="dash-selection-count" aria-live="polite"></span>
+            <button class="dash-btn dash-btn-danger" type="submit" data-bulk-delete disabled>@await Html.PartialAsync("_Icon", "trash") Delete selected</button>
+        </form>
+        @if (Model.Result.PageCount > 1)
+        {
+        <div class="dash-pagination">
+            @{
+                var rangeStart = Model.Result.Total == 0 ? 0 : (Model.Result.Page - 1) * Model.PageSize + 1;
+                var rangeEnd = Math.Min(Model.Result.Page * Model.PageSize, Model.Result.Total);
+            }
+            <div class="dash-pagination-summary">
+                @if (Model.Result.Total == 0)
+                {
+                    <span>No records</span>
+                }
+                else
+                {
+                    <span>Showing @rangeStart.ToString("N0")–@rangeEnd.ToString("N0") of @Model.Result.Total.ToString("N0")</span>
+                }
+            </div>
+            <nav class="dash-pagination-pages" aria-label="Pagination">
+                @if (Model.Result.Page > 1)
+                {
+                    var previousNumber = Model.Result.Page - 1;
+                    var previousUrl = Url.Page("/Admin/Resource", new { resourceName = Model.Resource.Slug, q = Model.Q ?? "", sort = Model.Sort, desc = Model.Desc.ToString().ToLowerInvariant(), pageNumber = previousNumber, pageSize = Model.PageSize, filterField = Model.FilterField, filterValue = Model.FilterValue })!;
+                    <a class="dash-btn" href="@previousUrl" hx-get="@previousUrl" hx-target="closest .dash-panel" hx-select=".dash-panel" hx-swap="outerHTML" hx-push-url="true" rel="prev" aria-label="Previous page">@await Html.PartialAsync("_Icon", "chevron-left") Previous</a>
+                }
+                else
+                {
+                    <span class="dash-btn dash-btn-disabled" aria-disabled="true" aria-label="Previous page">@await Html.PartialAsync("_Icon", "chevron-left") Previous</span>
+                }
+                @{
+                    var pageCount = Model.Result.PageCount;
+                    var pageStart = Math.Max(1, Math.Min(Model.Result.Page - 2, pageCount - 4));
+                    var pageEnd = Math.Min(pageCount, pageStart + 4);
+                }
+                @if (pageStart > 1)
+                {
+                    <span class="dash-pagination-ellipsis" aria-hidden="true">…</span>
+                }
+                @for (var pageNumber = pageStart; pageNumber <= pageEnd; pageNumber++)
+                {
+                    @if (pageNumber == Model.Result.Page)
+                    {
+                        <span class="dash-btn dash-btn-primary" aria-current="true">@pageNumber</span>
+                    }
+                    else
+                    {
+                        var pageUrl = Url.Page("/Admin/Resource", new { resourceName = Model.Resource.Slug, q = Model.Q ?? "", sort = Model.Sort, desc = Model.Desc.ToString().ToLowerInvariant(), pageNumber = pageNumber, pageSize = Model.PageSize, filterField = Model.FilterField, filterValue = Model.FilterValue })!;
+                        <a class="dash-btn" href="@pageUrl" hx-get="@pageUrl" hx-target="closest .dash-panel" hx-select=".dash-panel" hx-swap="outerHTML" hx-push-url="true">@pageNumber</a>
+                    }
+                }
+                @if (pageEnd < pageCount)
+                {
+                    <span class="dash-pagination-ellipsis" aria-hidden="true">…</span>
+                }
+                @if (Model.Result.Page < Model.Result.PageCount)
+                {
+                    var nextNumber = Model.Result.Page + 1;
+                    var nextUrl = Url.Page("/Admin/Resource", new { resourceName = Model.Resource.Slug, q = Model.Q ?? "", sort = Model.Sort, desc = Model.Desc.ToString().ToLowerInvariant(), pageNumber = nextNumber, pageSize = Model.PageSize, filterField = Model.FilterField, filterValue = Model.FilterValue })!;
+                    <a class="dash-btn" href="@nextUrl" hx-get="@nextUrl" hx-target="closest .dash-panel" hx-select=".dash-panel" hx-swap="outerHTML" hx-push-url="true" rel="next" aria-label="Next page">Next @await Html.PartialAsync("_Icon", "chevron-right")</a>
+                }
+                else
+                {
+                    <span class="dash-btn dash-btn-disabled" aria-disabled="true" aria-label="Next page">Next @await Html.PartialAsync("_Icon", "chevron-right")</span>
+                }
+            </nav>
+        </div>
+        }
+    </div>
+</div>
+}
+
+@section Scripts {
+    <script>
+        document.querySelectorAll("[data-image-url-thumbnail]").forEach(function (image) {
+            var fallback = image.parentElement.querySelector("[data-image-url-fallback]");
+            function showFallback() {
+                image.hidden = true;
+                if (fallback) fallback.hidden = false;
+            }
+            image.addEventListener("error", showFallback);
+            if (image.complete && image.naturalWidth === 0) showFallback();
+        });
+    </script>
+    <script>
+        (function () {
+            var scroll = null;
+            var pointerId = null;
+            var startX = 0;
+            var startScrollLeft = 0;
+            var dragging = false;
+
+            function finishPan(event) {
+                if (!scroll || (event && event.pointerId !== pointerId)) return;
+                var current = scroll;
+                var currentPointerId = pointerId;
+                scroll = null;
+                pointerId = null;
+                dragging = false;
+                current.classList.remove("is-panning");
+                if (current.hasPointerCapture(currentPointerId)) current.releasePointerCapture(currentPointerId);
+            }
+
+            document.addEventListener("pointerdown", function (event) {
+                var candidate = event.target.closest(".dash-table-scroll");
+                if (!candidate || event.pointerType !== "mouse" || event.button !== 0) return;
+                if (candidate.scrollWidth <= candidate.clientWidth + 1) return;
+                if (event.target.closest("a, button, input, select, textarea, label")) return;
+                scroll = candidate;
+                pointerId = event.pointerId;
+                startX = event.clientX;
+                startScrollLeft = candidate.scrollLeft;
+                candidate.setPointerCapture(pointerId);
+            });
+
+            document.addEventListener("pointermove", function (event) {
+                if (!scroll || event.pointerId !== pointerId) return;
+                var distance = event.clientX - startX;
+                if (!dragging && Math.abs(distance) < 4) return;
+                dragging = true;
+                scroll.classList.add("is-panning");
+                scroll.scrollLeft = startScrollLeft - distance;
+                event.preventDefault();
+            });
+
+            document.addEventListener("pointerup", finishPan);
+            document.addEventListener("pointercancel", finishPan);
+        })();
+    </script>
+    <script>
+        (function () {
+            function updateSelection(container) {
+                var rows = Array.from(container.querySelectorAll("[data-row-select]"));
+                var selected = rows.filter(function (checkbox) { return checkbox.checked; });
+                var selectAll = container.querySelector("[data-select-all]");
+                var bulkForm = container.querySelector("#dash-bulk-form");
+                var deleteButton = container.querySelector("[data-bulk-delete]");
+                var count = container.querySelector(".dash-selection-count");
+                if (selectAll) {
+                    selectAll.checked = rows.length > 0 && selected.length === rows.length;
+                    selectAll.indeterminate = selected.length > 0 && selected.length < rows.length;
+                }
+                if (bulkForm) bulkForm.toggleAttribute("hidden", selected.length === 0);
+                if (deleteButton) deleteButton.disabled = selected.length === 0;
+                if (count) count.textContent = selected.length === 0 ? "" : selected.length + " selected";
+            }
+
+            var viewMode = "grid";
+            try { viewMode = localStorage.getItem("efcore-dashboard-view") || viewMode; } catch { }
+            if (viewMode !== "cards") viewMode = "grid";
+
+            function applyView() {
+                document.querySelectorAll("#resource-table").forEach(function (container) {
+                    container.dataset.viewMode = viewMode;
+                });
+                document.querySelectorAll("[data-view-option]").forEach(function (option) {
+                    var active = option.dataset.viewOption === viewMode;
+                    option.classList.toggle("active", active);
+                    option.setAttribute("aria-pressed", active);
+                });
+            }
+
+            document.addEventListener("click", function (event) {
+                var option = event.target.closest("[data-view-option]");
+                if (!option) return;
+                viewMode = option.dataset.viewOption;
+                try { localStorage.setItem("efcore-dashboard-view", viewMode); } catch { }
+                applyView();
+            });
+
+            document.addEventListener("htmx:afterSwap", applyView);
+
+            document.addEventListener("change", function (event) {
+                if (!(event.target instanceof HTMLInputElement)) return;
+                var container = event.target.closest("#resource-table");
+                if (!container) return;
+                if (event.target.matches("[data-select-all]")) {
+                    container.querySelectorAll("[data-row-select]").forEach(function (checkbox) {
+                        checkbox.checked = event.target.checked;
+                    });
+                }
+                if (event.target.matches("[data-select-all], [data-row-select]")) updateSelection(container);
+            }, true);
+
+            applyView();
+        })();
+    </script>
+}

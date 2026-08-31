@@ -1,0 +1,524 @@
+@page "/admin/{resourceName}/edit/{id?}"
+@model EFCore.Dashboard.Pages.Admin.EditModel
+@{
+    Layout = "_DashboardLayout";
+    ViewData["Title"] = Model.Resource is null ? "Edit" : (Model.IsNew ? $"New {Model.Resource.Name}" : $"Edit {Model.Resource.Name}");
+    var needsSunEditor = Model.EditableFields.Any(field => field is TextField && field.Editor is DashboardEditors.Markdown or DashboardEditors.RichText);
+    var resourceUrl = Model.Resource is null ? null : Url.Page("/Admin/Resource", new { resourceName = Model.Resource.Slug });
+    var returnUrl = Url.IsLocalUrl(Model.ReturnUrl) ? Model.ReturnUrl : resourceUrl;
+}
+@if (Model.Resource is not null)
+{
+<div class="dash-editor-page">
+<div class="dash-page-head">
+    <div><div class="dash-eyebrow">@Model.Resource.Label</div><h1>@(Model.IsNew ? $"New {Model.Resource.Name}" : $"Edit {Model.Resource.Name}")</h1><p>@(Model.IsNew ? "Create a new record." : $"Editing {Model.Resource.Key.Label}: {@Model.Id}")</p></div>
+    <a class="dash-btn" href="@returnUrl" data-dash-editor-back>@await Html.PartialAsync("_Icon", "arrow-left") Back to @Model.Resource.Label</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" class="dash-edit-grid" novalidate>
+    <input type="hidden" asp-for="ReturnUrl" />
+    <input type="hidden" asp-for="ParentField" />
+    <input type="hidden" asp-for="ParentValue" />
+    <div class="dash-panel dash-form-panel">
+        @if (!ViewData.ModelState.IsValid || Model.DeleteReferences.Count > 0)
+        {
+            <div class="dash-alert"><strong>@(Model.DeleteReferences.Count > 0 ? "Nothing was deleted." : "Please fix the highlighted fields.")</strong>@if (!ViewData.ModelState.IsValid) { <div asp-validation-summary="All"></div> }@await Html.PartialAsync("_DeleteReferences", Model.DeleteReferences)</div>
+        }
+        <div class="dash-form-fields">
+        @foreach (var field in Model.EditableFields)
+        {
+            var value = Model.GetInputValue(field);
+            var isLongText = field.Editor is DashboardEditors.Markdown or DashboardEditors.RichText or DashboardEditors.Textarea or DashboardEditors.Json || (field is TextField && field.Editor is null && (field.MaxLength is null || field.MaxLength > 200));
+            var isWideField = isLongText || field is BinaryField || field.Editor == DashboardEditors.ImageUrl;
+            <div class="dash-field @(isWideField ? "dash-field-wide" : null) @(ViewData.ModelState.ContainsKey(field.Name) && ViewData.ModelState[field.Name]!.Errors.Count > 0 ? "has-error" : null)">
+                <label for="field_@field.Name">@field.Label @if (field.Required) { <span class="dash-required">*</span> }</label>
+                @if (field is RelationField)
+                {
+                    var options = Model.Relationships[field.Name];
+                    var selectedOption = options.FirstOrDefault(option => option.Value == value);
+                    var lookupUrl = Url.Page("/Admin/Edit", new
+                    {
+                        resourceName = Model.Resource.Slug,
+                        handler = "Lookup",
+                        field = field.Name,
+                        required = field.Required.ToString().ToLowerInvariant()
+                    })!;
+                    <div class="dash-lookup">
+                        @if (!field.ReadOnly)
+                        {
+                            <div class="dash-combobox">
+                                <span class="dash-combobox-icon">@await Html.PartialAsync("_Icon", "search")</span>
+                                <input id="field_@field.Name" class="dash-input dash-lookup-search" name="term" type="search"
+                                   value="@selectedOption?.Label"
+                                   placeholder="Search @(Model.RelatedLabels.TryGetValue(field.Name, out var relatedLabel) ? relatedLabel : field.Label)…" autocomplete="off"
+                                   role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="results_@field.Name"
+                                   hx-get="@lookupUrl"
+                                   hx-trigger="focus, input changed delay:250ms"
+                                   hx-target="#results_@field.Name"
+                                   hx-swap="innerHTML"
+                                   hx-include="#value_@field.Name"
+                                   hx-indicator="#spinner_@field.Name"
+                                   hx-sync="this:replace"
+                                   hx-params="@($"term,{field.Name}")" />
+                                <span id="spinner_@field.Name" class="dash-lookup-spinner htmx-indicator" aria-hidden="true"></span>
+                            </div>
+                        }
+                        <select id="@(field.ReadOnly ? $"field_{field.Name}" : $"value_{field.Name}")" name="@field.Name" class="dash-select dash-lookup-select" disabled="@field.ReadOnly">
+                            @if (field.Required) { <option value=""></option> }
+                            else { <option value="">— None —</option> }
+                            @foreach (var option in options)
+                            {
+                                <option value="@option.Value" selected="@(option.Value == value)">@option.Label</option>
+                            }
+                        </select>
+                        @if (!field.ReadOnly)
+                        {
+                            <div id="results_@field.Name" class="dash-lookup-results" role="listbox"></div>
+                        }
+                    </div>
+                }
+                else if (field is BinaryField binary)
+                {
+                    @if (!field.ReadOnly)
+                    {
+                        <input id="field_@field.Name" name="@field.Name" type="file" class="dash-file" accept="image/*" />
+                        <span class="dash-file-hint">PNG, JPEG, GIF, or WebP up to @(EditModel.MaxBinaryUploadBytes / (1024 * 1024)) MB.</span>
+                    }
+                    @if (Model.HasBinaryValue(binary) || !field.ReadOnly)
+                    {
+                        var preview = Model.BinaryPreview(binary);
+                        <div class="dash-image-preview" hidden="@(!Model.HasBinaryValue(binary))" data-image-preview>
+                            @if (preview is not null)
+                            {
+                                <img src="@preview" alt="@field.Label" class="dash-thumb dash-thumb-large" data-image-thumbnail />
+                            }
+                            else
+                            {
+                                <span class="dash-muted" data-image-fallback>Preview not available for this format.</span>
+                            }
+                            @if (Model.HasBinaryValue(binary) && !field.ReadOnly && !field.Required)
+                            {
+                                <input type="hidden" name="@Model.RemoveInputName(binary)" value="true" disabled data-remove-image-value />
+                                <button class="dash-image-remove" type="submit" name="@Model.RemoveInputName(binary)" value="true" data-remove-image>Remove image</button>
+                            }
+                        </div>
+                    }
+                }
+                else if (field is BooleanField)
+                {
+                    <label class="dash-switch-row"><input id="field_@field.Name" type="checkbox" name="@field.Name" value="true" checked="@(value == "true")" disabled="@field.ReadOnly" /><span class="dash-switch"></span><span>Enabled</span></label>
+                }
+                else if (field is EnumField flagsField && EditModel.IsFlagsEnum(flagsField))
+                {
+                    var names = Enum.GetNames(flagsField.EnumType);
+                    <div class="dash-checkbox-group">
+                        @for (var index = 0; index < names.Length; index++)
+                        {
+                            var optionId = index == 0 ? $"field_{field.Name}" : $"field_{field.Name}_{names[index]}";
+                            <label class="dash-checkbox-row" for="@optionId">
+                                <input id="@optionId" type="checkbox" name="@field.Name" value="@names[index]" checked="@EditModel.IsEnumOptionSelected(flagsField, value, names[index])" disabled="@field.ReadOnly" />
+                                <span>@names[index]</span>
+                            </label>
+                        }
+                    </div>
+                }
+                else if (field is EnumField enumField)
+                {
+                    <select id="field_@field.Name" name="@field.Name" class="dash-select" disabled="@field.ReadOnly">
+                        @if (!field.Required) { <option value="">— None —</option> }
+                        @foreach (var name in Enum.GetNames(enumField.EnumType)) { <option value="@name" selected="@(name == value)">@name</option> }
+                    </select>
+                }
+                else if (field.Editor is DashboardEditors.Markdown or DashboardEditors.RichText)
+                {
+                    <textarea id="field_@field.Name" name="@field.Name" class="dash-textarea" data-editor="@field.Editor" rows="12" maxlength="@field.MaxLength" readonly="@field.ReadOnly">@value</textarea>
+                    <span class="dash-file-hint">@(field.Editor == DashboardEditors.Markdown ? "Markdown source is stored as entered." : "Rich text is stored as HTML.")</span>
+                }
+                else if (field.Editor == DashboardEditors.Json)
+                {
+                    <textarea id="field_@field.Name" name="@field.Name" class="dash-textarea dash-json-editor" rows="12" maxlength="@field.MaxLength" readonly="@field.ReadOnly" required="@field.Required" spellcheck="false">@value</textarea>
+                    <span class="dash-file-hint">JSON is validated before it is saved.</span>
+                }
+                else if (field is TextField && field.Editor == DashboardEditors.ImageUrl)
+                {
+                    var preview = Model.ImageUrlPreview(field);
+                    <input id="field_@field.Name" name="@field.Name" class="dash-input" value="@value" type="url" maxlength="@field.MaxLength" readonly="@field.ReadOnly" required="@field.Required" data-image-url-input />
+                    <span class="dash-file-hint">Absolute HTTP or HTTPS image URL.</span>
+                    <div class="dash-image-preview" hidden="@(preview is null)" data-image-url-preview>
+                        @if (preview is not null)
+                        {
+                            <img src="@preview" alt="@field.Label" class="dash-thumb dash-thumb-large" referrerpolicy="no-referrer" data-image-url-thumbnail />
+                        }
+                        else
+                        {
+                            <img alt="@field.Label" class="dash-thumb dash-thumb-large" referrerpolicy="no-referrer" hidden data-image-url-thumbnail />
+                        }
+                        <span class="dash-muted" hidden data-image-url-fallback>Preview unavailable.</span>
+                    </div>
+                }
+                else if (field.Editor == DashboardEditors.Textarea || (field is TextField && field.Editor is null && (field.MaxLength is null || field.MaxLength > 200)))
+                {
+                    <textarea id="field_@field.Name" name="@field.Name" class="dash-textarea" rows="8" maxlength="@field.MaxLength" readonly="@field.ReadOnly">@value</textarea>
+                }
+                else if (Model.IsDateTimeOffset(field))
+                {
+                    <div class="dash-temporal-group">
+                        <input id="field_@field.Name" name="@field.Name" class="dash-input dash-temporal-input" value="@value" type="datetime-local" step="any" readonly="@field.ReadOnly" required="@field.Required" />
+                        <label class="dash-offset-field">
+                            <span>UTC offset</span>
+                            <input name="@Model.OffsetInputName(field)" class="dash-input dash-offset-input" value="@Model.GetOffsetInputValue(field)" type="text" inputmode="text" pattern="(\+|-)((0[0-9]|1[0-3]):[0-5][0-9]|14:00)" placeholder="+00:00" readonly="@field.ReadOnly" required="@field.Required" aria-label="UTC offset for @field.Label" />
+                        </label>
+                    </div>
+                    <span class="dash-file-hint">Local date and time with its UTC offset.</span>
+                }
+                else
+                {
+                    <input id="field_@field.Name" name="@field.Name" class="dash-input @(field is DateTimeField && !Model.IsTimeSpan(field) ? "dash-temporal-input" : null)" value="@value" type="@Model.InputType(field)" step="@Model.InputStep(field)" maxlength="@field.MaxLength" placeholder="@(Model.IsTimeSpan(field) ? "d.hh:mm:ss" : null)" readonly="@field.ReadOnly" required="@field.Required" />
+                    @if (Model.IsTimeSpan(field)) { <span class="dash-file-hint">Duration in days, hours, minutes, and seconds.</span> }
+                }
+                @if (field.MaxLength is not null) { <small>Maximum @field.MaxLength characters.</small> }
+                @if (ViewData.ModelState.TryGetValue(field.Name, out var state) && state.Errors.Count > 0) { <span class="dash-field-error">@state.Errors[0].ErrorMessage</span> }
+            </div>
+        }
+        </div>
+        <div class="dash-form-actions">
+            @if (!Model.IsNew)
+            {
+                <button class="dash-btn dash-btn-danger" type="submit" asp-page-handler="Delete" onclick="return confirm('Delete this record? This cannot be undone.')">@await Html.PartialAsync("_Icon", "trash") Delete</button>
+            }
+            <button class="dash-btn dash-btn-primary" type="submit">@(Model.IsNew ? "Create record" : "Save changes")</button>
+        </div>
+    </div>
+</form>
+@if (Model.RelatedRecords.Count > 0)
+{
+    <div class="dash-edit-grid">
+        <div class="dash-panel dash-related-panel">
+            <h2>Related records</h2>
+            <p>Open these lists to view or create records referencing this @Model.Resource.Name.</p>
+            <ul class="dash-related-records">
+            @foreach (var related in Model.RelatedRecords)
+            {
+                var url = Url.Page("/Admin/Resource", new
+                {
+                    resourceName = related.ResourceSlug,
+                    filterField = related.FilterField,
+                    filterValue = related.FilterValue
+                });
+                <li><a href="@url">@await Html.PartialAsync("_Icon", "grid-view") @related.ResourceLabel</a></li>
+            }
+            </ul>
+        </div>
+    </div>
+}
+</div>
+}
+
+@section Head {
+    @if (needsSunEditor)
+    {
+        <link rel="stylesheet" href="@Url.Content("~/_content/EFCore.Dashboard/suneditor.min.css")" integrity="sha384-OvL0rXr6cBkysBF+N6jn6i/InIW6YcEeGJcxJAzz/DtG1ZGYfiD/qSqlqXpugf6E" />
+        <link rel="stylesheet" href="@Url.Content("~/_content/EFCore.Dashboard/suneditor-contents.min.css")" integrity="sha384-zE97UsWNINiMUzzyqEsCR2ZNwvJw3X8QcXa7wdQ1evU1jIW5PutvvE38U1ClrDgW" />
+    }
+}
+
+@section Scripts {
+    <script>
+        document.querySelectorAll(".dash-file").forEach(function (input) {
+            input.addEventListener("change", function () {
+                var file = input.files && input.files[0];
+                if (!file) return;
+                var field = input.closest(".dash-field");
+                var preview = field.querySelector("[data-image-preview]");
+                var thumbnail = preview.querySelector("[data-image-thumbnail]");
+                if (!thumbnail) {
+                    thumbnail = document.createElement("img");
+                    thumbnail.alt = input.labels[0].textContent.trim();
+                    thumbnail.className = "dash-thumb dash-thumb-large";
+                    thumbnail.dataset.imageThumbnail = "";
+                    preview.prepend(thumbnail);
+                }
+                var fallback = preview.querySelector("[data-image-fallback]");
+                var removeValue = preview.querySelector("[data-remove-image-value]");
+                if (fallback) fallback.hidden = true;
+                if (removeValue) removeValue.disabled = true;
+                if (thumbnail.dataset.objectUrl) URL.revokeObjectURL(thumbnail.dataset.objectUrl);
+                thumbnail.dataset.objectUrl = URL.createObjectURL(file);
+                thumbnail.src = thumbnail.dataset.objectUrl;
+                preview.hidden = false;
+            });
+        });
+
+        document.querySelectorAll("[data-remove-image]").forEach(function (button) {
+            button.addEventListener("click", function (event) {
+                event.preventDefault();
+                var preview = button.closest(".dash-image-preview");
+                var value = preview && preview.querySelector("[data-remove-image-value]");
+                if (!preview || !value) return;
+                var file = preview.closest(".dash-field").querySelector("input[type=file]");
+                if (file) file.value = "";
+                var thumbnail = preview.querySelector("[data-image-thumbnail]");
+                if (thumbnail && thumbnail.dataset.objectUrl) URL.revokeObjectURL(thumbnail.dataset.objectUrl);
+                value.disabled = false;
+                preview.hidden = true;
+            });
+        });
+
+        document.querySelectorAll("[data-image-url-input]").forEach(function (input) {
+            var preview = input.closest(".dash-field").querySelector("[data-image-url-preview]");
+            var thumbnail = preview.querySelector("[data-image-url-thumbnail]");
+            var fallback = preview.querySelector("[data-image-url-fallback]");
+            var timer;
+
+            function safeUrl() {
+                try {
+                    var url = new URL(input.value.trim());
+                    return url.protocol === "http:" || url.protocol === "https:" ? url.href : null;
+                } catch {
+                    return null;
+                }
+            }
+
+            function hidePreview() {
+                preview.hidden = true;
+                thumbnail.hidden = true;
+                fallback.hidden = true;
+                thumbnail.removeAttribute("src");
+            }
+
+            function updatePreview() {
+                var url = safeUrl();
+                if (!url) {
+                    hidePreview();
+                    return;
+                }
+                fallback.hidden = true;
+                thumbnail.hidden = true;
+                preview.hidden = false;
+                thumbnail.src = url;
+            }
+
+            thumbnail.addEventListener("load", function () {
+                thumbnail.hidden = false;
+                fallback.hidden = true;
+            });
+            thumbnail.addEventListener("error", function () {
+                thumbnail.hidden = true;
+                fallback.hidden = false;
+            });
+            input.addEventListener("input", function () {
+                clearTimeout(timer);
+                timer = setTimeout(updatePreview, 300);
+            });
+            input.addEventListener("blur", function () {
+                clearTimeout(timer);
+                updatePreview();
+            });
+            if (thumbnail.hasAttribute("src") && thumbnail.complete) {
+                thumbnail.hidden = thumbnail.naturalWidth === 0;
+                fallback.hidden = thumbnail.naturalWidth !== 0;
+            }
+        });
+    </script>
+    <script>
+        (function () {
+            document.querySelectorAll(".dash-lookup").forEach(function (lookup) {
+                var input = lookup.querySelector(".dash-lookup-search");
+                var select = lookup.querySelector(".dash-lookup-select");
+                var results = lookup.querySelector(".dash-lookup-results");
+                if (!input || !select || !results) return;
+
+                var activeIndex = -1;
+                var committedLabel = input.value;
+
+                function options() {
+                    return Array.from(results.querySelectorAll("[role=option]"));
+                }
+
+                function close(restore) {
+                    if (restore) input.value = committedLabel;
+                    results.classList.remove("is-open");
+                    input.setAttribute("aria-expanded", "false");
+                    input.removeAttribute("aria-activedescendant");
+                    activeIndex = -1;
+                }
+
+                function open() {
+                    results.classList.add("is-open");
+                    input.setAttribute("aria-expanded", "true");
+                }
+
+                function activate(index) {
+                    var items = options();
+                    if (!items.length) return;
+                    activeIndex = (index + items.length) % items.length;
+                    items.forEach(function (item, itemIndex) {
+                        item.classList.toggle("is-active", itemIndex === activeIndex);
+                    });
+                    var active = items[activeIndex];
+                    if (!active.id) active.id = results.id + "_option_" + activeIndex;
+                    input.setAttribute("aria-activedescendant", active.id);
+                    active.scrollIntoView({ block: "nearest" });
+                }
+
+                function choose(option) {
+                    var value = option.getAttribute("data-value") || "";
+                    var label = option.getAttribute("data-label") || option.textContent.trim();
+                    var selectOption = Array.from(select.options).find(function (item) { return item.value === value; });
+                    if (!selectOption) {
+                        selectOption = new Option(label, value);
+                        select.add(selectOption);
+                    }
+                    select.value = value;
+                    committedLabel = value ? label : "";
+                    input.value = committedLabel;
+                    select.dispatchEvent(new Event("change", { bubbles: true }));
+                    close(false);
+                }
+
+                input.addEventListener("input", function () {
+                    results.classList.remove("is-open");
+                    input.setAttribute("aria-expanded", "false");
+                });
+                input.addEventListener("keydown", function (event) {
+                    var items = options();
+                    if (event.key === "ArrowDown") {
+                        event.preventDefault();
+                        open();
+                        activate(activeIndex + 1);
+                    } else if (event.key === "ArrowUp") {
+                        event.preventDefault();
+                        open();
+                        activate(activeIndex - 1);
+                    } else if (event.key === "Enter" && activeIndex >= 0 && items[activeIndex]) {
+                        event.preventDefault();
+                        choose(items[activeIndex]);
+                    } else if (event.key === "Escape") {
+                        event.preventDefault();
+                        close(true);
+                    }
+                });
+                input.addEventListener("blur", function () {
+                    window.setTimeout(function () {
+                        if (!lookup.contains(document.activeElement)) close(true);
+                    }, 0);
+                });
+                results.addEventListener("mousedown", function (event) {
+                    event.preventDefault();
+                });
+                results.addEventListener("click", function (event) {
+                    var option = event.target.closest("[role=option]");
+                    if (option) choose(option);
+                });
+                results.addEventListener("mousemove", function (event) {
+                    var option = event.target.closest("[role=option]");
+                    if (option) activate(options().indexOf(option));
+                });
+                results.addEventListener("htmx:afterSwap", function () {
+                    activeIndex = -1;
+                    if (document.activeElement === input) open();
+                });
+            });
+        })();
+    </script>
+    <script>
+        (function () {
+            var page = document.querySelector(".dash-editor-page");
+            var back = document.querySelector("[data-dash-editor-back]");
+            if (!page || !back) return;
+
+            var leaving = false;
+            var reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+
+            back.addEventListener("click", function (event) {
+                if (event.defaultPrevented || event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+                if (reducedMotion.matches) return;
+
+                event.preventDefault();
+                if (leaving) return;
+                leaving = true;
+
+                var navigated = false;
+                function navigate() {
+                    if (navigated) return;
+                    navigated = true;
+                    window.location.assign(back.href);
+                }
+
+                page.addEventListener("animationend", function (animationEvent) {
+                    if (animationEvent.animationName === "dash-editor-out") navigate();
+                }, { once: true });
+                page.classList.add("dash-editor-leaving");
+                window.setTimeout(navigate, 250);
+            });
+
+            window.addEventListener("pageshow", function (event) {
+                if (!event.persisted) return;
+                leaving = false;
+                page.classList.remove("dash-editor-leaving");
+            });
+        })();
+    </script>
+    @if (needsSunEditor)
+    {
+        <script src="@Url.Content("~/_content/EFCore.Dashboard/suneditor.min.js")" integrity="sha384-Hbl9syh4Fe0GLByydJwgSUxGp8TMwR6RJQbqXpbb+035y7GLxs0HBq89h2/HmpxY"></script>
+        <script>
+            // Upgrades markdown and richtext textareas to SunEditor instances.
+            // The original textarea stays in the form and receives the editor
+            // content when the form is submitted; without JavaScript it remains
+            // a plain textarea that still posts its source, source-preserving.
+            (function () {
+                if (!window.SUNEDITOR) return;
+                var textareas = document.querySelectorAll("textarea[data-editor]");
+                if (!textareas.length) return;
+                var instances = [];
+                textareas.forEach(function (textarea) {
+                    var mode = textarea.getAttribute("data-editor");
+                    var editor = SUNEDITOR.create(textarea, {
+                        height: "380px",
+                        plugins: SUNEDITOR.plugins,
+                        buttonList: [
+                            ["blockStyle"], "|",
+                            ["bold", "underline", "italic", "strike"], "|",
+                            ["blockquote", "list"], "|",
+                            ["table", "link", "anchor", "image", "video", "math", "codeBlock"], "|",
+                            ["fullScreen", "showBlocks"],
+                            mode === "@DashboardEditors.Markdown" ? ["markdownView"] : ["codeView"],
+                            ["preview"]
+                        ],
+                        events: {
+                            onload: function (event) {
+                                if (mode !== "@DashboardEditors.Markdown") return;
+                                var deps = event.$;
+                                var context = deps.frameContext;
+                                context.get("markdown").value = textarea.value;
+                                if (!context.get("isMarkdownView")) {
+                                    deps.viewer.markdownView(true);
+                                    deps.viewer.markdownView(false);
+                                }
+                            }
+                        }
+                    });
+                    instances.push({ textarea: textarea, editor: editor, mode: mode });
+                });
+                instances.forEach(function (entry) {
+                    var form = entry.textarea.closest("form");
+                    if (!form) return;
+                    form.addEventListener("submit", function () {
+                        var deps = entry.editor.$;
+                        var context = deps.frameContext;
+                        if (entry.mode === "@DashboardEditors.Markdown") {
+                            var wasMarkdown = context.get("isMarkdownView");
+                            if (!wasMarkdown) deps.viewer.markdownView(true);
+                            entry.textarea.value = context.get("markdown").value;
+                            if (!wasMarkdown) deps.viewer.markdownView(false);
+                        } else {
+                            if (context.get("isMarkdownView")) deps.viewer.markdownView(false);
+                            entry.textarea.value = context.get("wysiwyg").innerHTML;
+                        }
+                    });
+                });
+            })();
+        </script>
+    }
+}

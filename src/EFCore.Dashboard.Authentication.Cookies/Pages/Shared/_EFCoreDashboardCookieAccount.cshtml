@@ -1,0 +1,6 @@
+<div class="dash-account">
+    <span class="dash-account-name">@User.Identity?.Name</span>
+    <form method="post" asp-page="/DashboardAuth/Logout">
+        <button class="dash-account-action" type="submit">Sign out</button>
+    </form>
+</div>

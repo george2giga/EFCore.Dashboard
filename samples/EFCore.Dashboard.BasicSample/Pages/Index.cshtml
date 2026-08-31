@@ -1,0 +1,75 @@
+@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Independent notes on software";
+}
+
+<section class="story-section" id="latest">
+    <header class="section-heading">
+        <div><span>Dispatches</span><h2>Latest stories</h2></div>
+        <div class="category-filter" aria-label="Filter stories by category">
+            <a asp-page="/Index" class="@(Model.CategoryId is null ? "active" : null)">All</a>
+            @foreach (var category in Model.Categories)
+            {
+                <a asp-page="/Index" asp-route-categoryId="@category.Id" asp-fragment="latest" class="@(Model.CategoryId == category.Id ? "active" : null)">@category.Name</a>
+            }
+        </div>
+    </header>
+
+    @if (Model.Articles.Count == 0)
+    {
+        <p class="empty-state">No published stories in this section yet.</p>
+    }
+    else
+    {
+        <div class="story-grid">
+            @foreach (var article in Model.Articles)
+            {
+                <article class="story-card">
+                    <div class="story-meta"><span>@article.Category.Name</span><time datetime="@article.PublishedAt?.ToString("yyyy-MM-dd")">@article.PublishedAt?.ToString("dd MMM yyyy")</time></div>
+                    <h3><a asp-page="/Article" asp-route-slug="@article.Slug">@article.Title</a></h3>
+                    <p>@article.Excerpt</p>
+                    <div class="story-foot"><a asp-page="/Author" asp-route-slug="@article.Author.Slug">@article.Author.Name</a><span>@article.ReadingMinutes min</span></div>
+                </article>
+            }
+        </div>
+    }
+</section>
+
+<section class="writers-section" id="writers">
+    <header class="section-heading"><div><span>Contributors</span><h2>The people behind the notes</h2></div></header>
+    <div class="writer-grid">
+        @foreach (var author in Model.Authors)
+        {
+            <a class="writer-card" asp-page="/Author" asp-route-slug="@author.Slug">
+                <img src="@author.AvatarUrl" alt="Portrait of @author.Name" loading="lazy" />
+                <span><strong>@author.Name</strong><small>@author.Role</small></span>
+                <span class="writer-arrow" aria-hidden="true">&#8599;</span>
+            </a>
+        }
+    </div>
+</section>
+
+<section class="newsletter" id="newsletter">
+    <div><span class="kicker">The occasional letter</span><h2>One useful idea,<br />when it is ready.</h2></div>
+    <div>
+        @if (Model.Subscription == "joined")
+        {
+            <p class="form-notice">You are on the list. The next field note will find you.</p>
+        }
+        else if (Model.Subscription == "invalid")
+        {
+            <p class="form-notice error">Enter a valid email address.</p>
+        }
+        else
+        {
+            <p>No feeds to keep up with. A short editorial letter, sent at most twice a month.</p>
+        }
+        <form class="newsletter-form" method="post" asp-page="/Subscribe">
+            <label class="sr-only" for="subscriber-email">Email address</label>
+            <input id="subscriber-email" name="email" type="email" maxlength="200" placeholder="you@example.com" required />
+            <input class="form-trap" name="company" tabindex="-1" autocomplete="off" aria-hidden="true" />
+            <button type="submit">Join the letter</button>
+        </form>
+    </div>
+</section>

@@ -1,0 +1,48 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EFCore.Dashboard", "src\\EFCore.Dashboard\\EFCore.Dashboard.csproj", "{02D4A2D4-539A-4C34-875A-277648992617}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EFCore.Dashboard.Authentication.Cookies", "src\\EFCore.Dashboard.Authentication.Cookies\\EFCore.Dashboard.Authentication.Cookies.csproj", "{048D879B-A4D3-412D-B0C2-A011144D86FA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EFCore.Dashboard.BasicSample", "samples\\EFCore.Dashboard.BasicSample\\EFCore.Dashboard.BasicSample.csproj", "{C91AD124-E3F9-43B5-8F65-E34D47ECABAD}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EFCore.Dashboard.StressSample", "samples\\EFCore.Dashboard.StressSample\\EFCore.Dashboard.StressSample.csproj", "{2772B7ED-3B10-4845-82A0-951E5CD75F2F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EFCore.Dashboard.AuthSample", "samples\\EFCore.Dashboard.AuthSample\\EFCore.Dashboard.AuthSample.csproj", "{6C5D5824-1A88-461B-A27D-10D52A54A9B8}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "EFCore.Dashboard.Tests", "tests\\EFCore.Dashboard.Tests\\EFCore.Dashboard.Tests.csproj", "{A82FBA4F-D991-4F34-B9D4-2A7A79FD3425}"
+EndProject
+Global
+    GlobalSection(SolutionConfigurationPlatforms) = preSolution
+        Debug|Any CPU = Debug|Any CPU
+        Release|Any CPU = Release|Any CPU
+    EndGlobalSection
+    GlobalSection(ProjectConfigurationPlatforms) = postSolution
+        {02D4A2D4-539A-4C34-875A-277648992617}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {02D4A2D4-539A-4C34-875A-277648992617}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {02D4A2D4-539A-4C34-875A-277648992617}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {02D4A2D4-539A-4C34-875A-277648992617}.Release|Any CPU.Build.0 = Release|Any CPU
+        {048D879B-A4D3-412D-B0C2-A011144D86FA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {048D879B-A4D3-412D-B0C2-A011144D86FA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {048D879B-A4D3-412D-B0C2-A011144D86FA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {048D879B-A4D3-412D-B0C2-A011144D86FA}.Release|Any CPU.Build.0 = Release|Any CPU
+        {C91AD124-E3F9-43B5-8F65-E34D47ECABAD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {C91AD124-E3F9-43B5-8F65-E34D47ECABAD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {C91AD124-E3F9-43B5-8F65-E34D47ECABAD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {C91AD124-E3F9-43B5-8F65-E34D47ECABAD}.Release|Any CPU.Build.0 = Release|Any CPU
+        {2772B7ED-3B10-4845-82A0-951E5CD75F2F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {2772B7ED-3B10-4845-82A0-951E5CD75F2F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {2772B7ED-3B10-4845-82A0-951E5CD75F2F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {2772B7ED-3B10-4845-82A0-951E5CD75F2F}.Release|Any CPU.Build.0 = Release|Any CPU
+        {6C5D5824-1A88-461B-A27D-10D52A54A9B8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {6C5D5824-1A88-461B-A27D-10D52A54A9B8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {6C5D5824-1A88-461B-A27D-10D52A54A9B8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {6C5D5824-1A88-461B-A27D-10D52A54A9B8}.Release|Any CPU.Build.0 = Release|Any CPU
+        {A82FBA4F-D991-4F34-B9D4-2A7A79FD3425}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+        {A82FBA4F-D991-4F34-B9D4-2A7A79FD3425}.Debug|Any CPU.Build.0 = Debug|Any CPU
+        {A82FBA4F-D991-4F34-B9D4-2A7A79FD3425}.Release|Any CPU.ActiveCfg = Release|Any CPU
+        {A82FBA4F-D991-4F34-B9D4-2A7A79FD3425}.Release|Any CPU.Build.0 = Release|Any CPU
+    EndGlobalSection
+EndGlobal

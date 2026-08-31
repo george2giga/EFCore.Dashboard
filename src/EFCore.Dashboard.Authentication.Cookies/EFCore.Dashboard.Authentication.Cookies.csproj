@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageId>EFCore.Dashboard.Authentication.Cookies</PackageId>
+    <Version>0.1.1</Version>
+    <Authors>Giorgio Minardi</Authors>
+    <Description>Optional single-administrator cookie authentication for EFCore.Dashboard.</Description>
+    <PackageTags>aspnetcore;dashboard;admin;authentication;cookies</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/george2giga/EFCore.Dashboard</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/george2giga/EFCore.Dashboard.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageIcon>efcore-dashboard-icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="..\EFCore.Dashboard\EFCore.Dashboard.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath="\" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" Link="LICENSE" />
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="\" Link="THIRD_PARTY_NOTICES.md" />
+    <None Include="..\..\docs\assets\efcore-dashboard-icon.png" Pack="true" PackagePath="\" Link="efcore-dashboard-icon.png" />
+  </ItemGroup>
+</Project>

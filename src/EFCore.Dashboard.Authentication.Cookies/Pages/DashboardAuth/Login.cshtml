@@ -1,0 +1,37 @@
+@page "/efcore-dashboard/account/login"
+@model DashboardAuth.LoginModel
+@{
+    Layout = null;
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Dashboard sign in</title>
+    @await Html.PartialAsync("_DashboardAuthenticationStyles")
+</head>
+<body class="efcd-auth-body">
+    <main class="dash-panel efcd-auth-card">
+        <div class="efcd-auth-brand"><span class="dash-logo"><svg class="dash-ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5V19A9 3 0 0 0 21 19V5"></path><path d="M3 12A9 3 0 0 0 21 12"></path></svg></span><span>EFCore.Dashboard</span></div>
+        <div class="dash-eyebrow">Secure workspace</div>
+        <h1>Administrator sign in</h1>
+        <p>Use the dashboard credential configured by this application.</p>
+
+        <form class="efcd-auth-form" method="post">
+            <input type="hidden" asp-for="ReturnUrl" />
+            <div asp-validation-summary="ModelOnly" class="dash-alert efcd-auth-error"></div>
+            <div class="dash-field">
+                <label asp-for="Username"></label>
+                <input class="dash-input" asp-for="Username" autocomplete="username" autofocus />
+            </div>
+            <div class="dash-field">
+                <label asp-for="Password"></label>
+                <input class="dash-input" asp-for="Password" autocomplete="current-password" />
+            </div>
+            <button class="dash-btn dash-btn-primary dash-btn-block" type="submit">Sign in</button>
+        </form>
+    </main>
+</body>
+</html>

@@ -1,0 +1,213 @@
+@page "/admin/data-model"
+@model EFCore.Dashboard.Pages.Admin.SchemaModel
+@{
+    Layout = "_DashboardLayout";
+    ViewData["Title"] = "Data model";
+    ViewData["NavActive"] = "data-model";
+}
+<div class="dash-page-head">
+    <div><div class="dash-eyebrow">Overview</div><h1>Data model</h1><p>Model navigator generated from your EF Core metadata, one table per registered resource.</p></div>
+    <span class="dash-kbd">@Model.EntityCount entities · @Model.RelationshipCount relationships</span>
+</div>
+<div class="dash-panel dash-diagram" id="dash-diagram-panel">
+    <div class="dash-diagram-tools">
+        <button type="button" id="dash-diagram-zoom-out" title="Zoom out" aria-label="Zoom out">−</button>
+        <button type="button" id="dash-diagram-zoom-in" title="Zoom in" aria-label="Zoom in">+</button>
+        <button type="button" id="dash-diagram-fit" title="Fit the diagram to this panel" aria-label="Fit diagram to panel">Fit</button>
+    </div>
+    <div class="dash-schema-canvas" id="dash-class-diagram">@Html.Raw(Model.DashboardDiagramSvg)</div>
+</div>
+@section Scripts {
+    <script>
+        // The diagram is rendered server-side; this script only turns the panel into an
+        // interactive canvas: wheel zoom toward the cursor, drag-to-pan, a fit-to-view
+        // reset, and hover neighbor highlighting driven by the SVG relationship metadata.
+        // Without JavaScript the inline SVG stays fully readable in the panel.
+        (function () {
+            var host = document.getElementById("dash-class-diagram");
+            var panel = document.getElementById("dash-diagram-panel");
+            if (!host || !panel) return;
+
+            var svg = host.querySelector("svg");
+            if (!svg) return;
+
+            var viewBox = svg.getAttribute("viewBox").trim().split(/[\s,]+/).map(Number);
+            if (viewBox.length !== 4 || viewBox[2] <= 0 || viewBox[3] <= 0) return;
+            var diagramWidth = viewBox[2], diagramHeight = viewBox[3];
+            svg.style.width = diagramWidth + "px";
+            svg.style.height = diagramHeight + "px";
+
+            var scale = 1, tx = 0, ty = 0;
+            var drag = null;
+            var dimmed = [];
+            var nodeEntries = [];
+            var linkEntries = [];
+            var lastHighlight = null;
+
+            function viewport() {
+                return {
+                    width: Math.max(panel.clientWidth - 40, 200),
+                    height: Math.max(panel.clientHeight - 64, 200)
+                };
+            }
+
+            function applyTransform() {
+                svg.style.transform = "translate(" + tx + "px, " + ty + "px) scale(" + scale + ")";
+            }
+
+            function clampScale(v) {
+                return Math.min(Math.max(v, 0.1), 4);
+            }
+
+            function zoomAt(x, y, factor) {
+                var next = clampScale(scale * factor);
+                var wx = (x - tx) / scale;
+                var wy = (y - ty) / scale;
+                scale = next;
+                tx = x - wx * scale;
+                ty = y - wy * scale;
+                applyTransform();
+            }
+
+            function fitToView() {
+                var vp = viewport();
+                scale = clampScale(Math.min(vp.width / diagramWidth, vp.height / diagramHeight));
+                tx = (vp.width - diagramWidth * scale) / 2;
+                ty = (vp.height - diagramHeight * scale) / 2;
+                applyTransform();
+            }
+
+            function pointer(e) {
+                var rect = host.getBoundingClientRect();
+                return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+            }
+
+            function bindNodes() {
+                nodeEntries = [];
+                for (var node of svg.querySelectorAll("g.ef-diagram-table")) {
+                    var label = node.getAttribute("data-entity") || "";
+                    if (!label) continue;
+                    node.classList.add("dash-node");
+                    nodeEntries.push({ group: node, label: label });
+                }
+            }
+
+            function bindLinks() {
+                linkEntries = [];
+                for (var link of svg.querySelectorAll("g.ef-diagram-link")) {
+                    linkEntries.push({
+                        group: link,
+                        from: link.getAttribute("data-from") || "",
+                        to: link.getAttribute("data-to") || ""
+                    });
+                }
+            }
+
+            function entryAt(e) {
+                var el = e.target;
+                while (el && el !== host) {
+                    if (el.nodeType === 1 && el.classList.contains("dash-node")) {
+                        for (var entry of nodeEntries) if (entry.group === el) return entry;
+                        return null;
+                    }
+                    el = el.parentElement;
+                }
+                return null;
+            }
+
+            function clearHighlight() {
+                for (var el of dimmed) el.classList.remove("dash-dim");
+                dimmed = [];
+                lastHighlight = null;
+            }
+
+            function highlight(label) {
+                if (label === lastHighlight) return;
+                clearHighlight();
+                var keep = {};
+                keep[label] = true;
+                for (var link of linkEntries) {
+                    if (link.from === label || link.to === label) {
+                        keep[link.from] = true;
+                        keep[link.to] = true;
+                    } else {
+                        link.group.classList.add("dash-dim");
+                        dimmed.push(link.group);
+                    }
+                }
+                for (var node of nodeEntries) {
+                    if (!keep[node.label]) {
+                        node.group.classList.add("dash-dim");
+                        dimmed.push(node.group);
+                    }
+                }
+                lastHighlight = label;
+            }
+
+            function layoutCanvas() {
+                panel.style.overflow = "hidden";
+                var vp = viewport();
+                host.style.width = vp.width + "px";
+                host.style.height = vp.height + "px";
+                host.style.overflow = "hidden";
+            }
+
+            layoutCanvas();
+            fitToView();
+            bindNodes();
+            bindLinks();
+            panel.classList.add("live");
+
+            panel.addEventListener("wheel", function (e) {
+                e.preventDefault();
+                var p = pointer(e);
+                zoomAt(p.x, p.y, e.deltaY < 0 ? 1.2 : 1 / 1.2);
+            });
+
+            host.addEventListener("mousedown", function (e) {
+                drag = pointer(e);
+                host.classList.add("panning");
+                e.preventDefault();
+            });
+
+            host.addEventListener("mouseover", function (e) {
+                if (host.classList.contains("panning")) return;
+                var entry = entryAt(e);
+                if (entry) highlight(entry.label);
+                else clearHighlight();
+            });
+
+            host.addEventListener("mousemove", function (e) {
+                if (!drag) return;
+                var p = pointer(e);
+                tx += p.x - drag.x;
+                ty += p.y - drag.y;
+                drag = p;
+                applyTransform();
+            });
+
+            host.addEventListener("mouseup", function () {
+                drag = null;
+                host.classList.remove("panning");
+            });
+
+            host.addEventListener("mouseleave", function () {
+                drag = null;
+                host.classList.remove("panning");
+                clearHighlight();
+            });
+
+            document.getElementById("dash-diagram-zoom-in").addEventListener("click", function () {
+                var vp = viewport();
+                zoomAt(vp.width / 2, vp.height / 2, 1.2);
+            });
+
+            document.getElementById("dash-diagram-zoom-out").addEventListener("click", function () {
+                var vp = viewport();
+                zoomAt(vp.width / 2, vp.height / 2, 1 / 1.2);
+            });
+
+            document.getElementById("dash-diagram-fit").addEventListener("click", fitToView);
+        })();
+    </script>
+}

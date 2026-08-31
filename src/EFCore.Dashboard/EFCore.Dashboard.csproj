@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <AddRazorSupportForMvc>true</AddRazorSupportForMvc>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <PackageId>EFCore.Dashboard</PackageId>
+    <Version>0.1.1</Version>
+    <Authors>Giorgio Minardi</Authors>
+    <Description>A small, extensible admin dashboard over an existing EF Core model for ASP.NET Core using Razor Pages and HTMX.</Description>
+    <PackageTags>aspnetcore;dashboard;admin;efcore;razor;htmx</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/george2giga/EFCore.Dashboard</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/george2giga/EFCore.Dashboard.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageIcon>efcore-dashboard-icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.11" Condition="'$(TargetFramework)' == 'net8.0' Or '$(TargetFramework)' == 'net9.0'" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.11" Condition="'$(TargetFramework)' == 'net10.0'" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" Link="README.md" />
+    <None Include="..\..\LICENSE" Pack="true" PackagePath="\" Link="LICENSE" />
+    <None Include="..\..\THIRD_PARTY_NOTICES.md" Pack="true" PackagePath="\" Link="THIRD_PARTY_NOTICES.md" />
+    <None Include="..\..\docs\assets\efcore-dashboard-icon.png" Pack="true" PackagePath="\" Link="efcore-dashboard-icon.png" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,26 @@
+@page "/admin"
+@model EFCore.Dashboard.Pages.Admin.IndexModel
+@{
+    Layout = "_DashboardLayout";
+    ViewData["Title"] = "Dashboard";
+}
+<div class="dash-page-head">
+    <div><div class="dash-eyebrow">Overview</div><h1>Dashboard</h1><p>Browse and manage the resources defined by your EF Core model.</p></div>
+</div>
+<div class="dash-section-head">
+    <a asp-page="/Admin/Schema">View data model @await Html.PartialAsync("_Icon", "chevron-right")</a>
+</div>
+<div class="dash-stat-grid">
+@foreach (var item in Model.Resources)
+{
+    <a class="dash-stat-card" asp-page="/Admin/Resource" asp-route-resourceName="@item.Resource.Slug">
+        <div class="dash-stat-top"><span class="dash-resource-icon">@await Html.PartialAsync("_Icon", "table")</span><span class="dash-resource-name">@item.Resource.Label</span><span class="dash-arrow">@await Html.PartialAsync("_Icon", "chevron-right")</span></div>
+        <div class="dash-stat-meta"><span><strong>@item.Count.ToString("N0")</strong> records</span><code>@item.Resource.Name</code></div>
+    </a>
+}
+</div>
+<div class="dash-resource-summary">
+    @await Html.PartialAsync("_Icon", "database") <code>@Model.DbContextName</code>
+    <span aria-hidden="true">·</span>
+    @await Html.PartialAsync("_Icon", "table") <strong>@Model.Resources.Count.ToString("N0")</strong> mapped @(Model.Resources.Count == 1 ? "table" : "tables")
+</div>

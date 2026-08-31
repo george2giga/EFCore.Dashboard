@@ -1,0 +1,11 @@
+title: EFCore.Dashboard
+description: Consumer documentation for installing, securing, configuring, and extending EFCore.Dashboard.
+theme: minima
+markdown: kramdown
+plugins:
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collections: true
+kramdown:
+  input: GFM

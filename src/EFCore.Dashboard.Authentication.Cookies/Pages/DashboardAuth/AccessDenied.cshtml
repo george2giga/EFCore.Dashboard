@@ -1,0 +1,22 @@
+@page "/efcore-dashboard/account/access-denied"
+@model DashboardAuth.AccessDeniedModel
+@{
+    Layout = null;
+}
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dashboard access denied</title>
+    @await Html.PartialAsync("_DashboardAuthenticationStyles")
+</head>
+<body class="efcd-auth-body">
+    <main class="dash-panel efcd-auth-card">
+        <div class="efcd-auth-brand"><span class="dash-logo"><svg class="dash-ic" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><ellipse cx="12" cy="5" rx="9" ry="3"></ellipse><path d="M3 5V19A9 3 0 0 0 21 19V5"></path><path d="M3 12A9 3 0 0 0 21 12"></path></svg></span><span>EFCore.Dashboard</span></div>
+        <div class="dash-eyebrow">Secure workspace</div>
+        <h1>Access denied</h1>
+        <p>The authenticated account cannot access this dashboard.</p>
+    </main>
+</body>
+</html>

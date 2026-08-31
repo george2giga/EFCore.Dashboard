@@ -1,0 +1,7 @@
+@inject DashboardOptions DashboardOptions
+<link rel="stylesheet" href="@Url.Content("~/_content/EFCore.Dashboard/dashboard.css")" />
+<link rel="stylesheet" href="@Url.Content("~/_content/EFCore.Dashboard.Authentication.Cookies/authentication.css")" />
+@foreach (var stylesheet in DashboardOptions.AdditionalStylesheets)
+{
+    <link rel="stylesheet" href="@Url.Content(stylesheet)" />
+}
